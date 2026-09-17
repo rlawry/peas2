@@ -191,6 +191,13 @@
   .pip.on{background:var(--violet)}
   #awardCanvas{display:block;width:100%;height:150px;border:1px solid var(--edge-soft);
     border-radius:3px;background:#101b15;margin-bottom:14px}
+  .code{display:flex;align-items:center;gap:12px;flex-wrap:wrap;
+    background:#101b15;border:1px solid var(--edge);border-radius:4px;
+    padding:10px 14px;margin-bottom:8px}
+  .codeLabel{font-size:11px;color:var(--dim);letter-spacing:.09em;text-transform:uppercase}
+  .codeVal{flex:1;font-family:var(--mono);font-size:27px;letter-spacing:.2em;
+    color:var(--wheat);user-select:all;-webkit-user-select:all}
+  .codeNote{font-size:11.5px;color:var(--dim);font-style:italic;margin:0 0 14px}
   .medal{font-size:13.5px;color:var(--dim);margin:0 0 14px}
   .medal b{color:var(--wheat)}
 
@@ -367,6 +374,7 @@ var state = {
   cooldownUntil: 0,
   pendingCall: false,
   picked: [false,false],
+  code: '',
   rain: []
 };
 
@@ -1143,8 +1151,49 @@ function judge(){
   renderSowButton();
 }
 
+/* Completion code: five digits that always add to 9, which also means the
+   whole number is divisible by 9 - a calculator check. The FIRST digit
+   carries how many tries it took: first digit + 5 = attempts, with 9
+   meaning fourteen or more. So 14220 is a clean six-round run;
+   53103 took eight tries. */
+function makeCode(attempts){
+  var d1 = Math.max(1, Math.min(9, attempts - 5));
+  var rest = 9 - d1;
+  var digits = [0,0,0,0];
+  for(var i=0;i<rest;i++){
+    var slot;
+    do { slot = Math.floor(Math.random()*4); } while(digits[slot] >= 9);
+    digits[slot]++;
+  }
+  return '' + d1 + digits.join('');
+}
+
+function copyCode(btn){
+  var txt = state.code;
+  function done(){
+    btn.textContent = 'Copied';
+    setTimeout(function(){ btn.textContent = 'Copy'; }, 1800);
+  }
+  function fallback(){
+    try{
+      var ta = document.createElement('textarea');
+      ta.value = txt; ta.style.position = 'fixed'; ta.style.opacity = '0';
+      document.body.appendChild(ta); ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+      done();
+    }catch(e){ btn.textContent = 'Select it by hand'; }
+  }
+  try{
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(txt).then(done, fallback);
+    }else{ fallback(); }
+  }catch(e){ fallback(); }
+}
+
 function showAward(){
   state.phase = 'award';
+  state.code = makeCode(state.rounds);
   card.innerHTML =
     '<h2>The Mendel Award</h2>' +
     '<p class="lead">For reading what a plant keeps hidden.</p>' +
@@ -1152,12 +1201,18 @@ function showAward(){
     '<p class="medal">Six mysteries solved in <b>' + state.rounds + '</b> attempts. ' +
     'You found the hidden white by doing what Mendel did: crossing to a plant ' +
     'that could only give white, then counting what came up.</p>' +
+    '<div class="code"><span class="codeLabel">Completion code</span>' +
+    '<span class="codeVal" id="codeVal">' + state.code + '</span>' +
+    '<button class="btn ghost" id="copyCode">Copy</button></div>' +
+    '<p class="codeNote">Hand this in. It is generated from your run.</p>' +
     '<div class="actions"><button class="btn" id="again">Start a new garden</button></div>';
   card.className = 'card right';
   overlay.className = 'show right';
   drawAward();
+  var cp = document.getElementById('copyCode');
+  if(cp) cp.addEventListener('click', function(){ copyCode(cp); });
   document.getElementById('again').addEventListener('click', function(){
-    state.solved = 0; state.rounds = 0;
+    state.solved = 0; state.rounds = 0; state.code = '';
     overlay.className = '';
     newRound();
   });
